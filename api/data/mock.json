@@ -1,0 +1,63 @@
+{
+   "customerId": "0142ca6d-3ff9-4146-9f2e-617719120f56",
+   "customerAbbr": "SS",
+   "customerAbbrColor": "#1ABC9C",
+   "customerName": "เยาวลักษณ์  เจตน์อัศวภิรมย์",
+   "customerClassify": "Unknown",
+   "emoticon": "1",
+   "customerType": "Unknown",
+   "customerImage": "null",
+   "customerDescription": "null",
+   "subMenu": "case",
+   "focus": {
+      "case": "#casePanel",
+      "handling": "contact"
+   },
+   "case": {
+      "customer": {
+         "isActive": false
+      },
+      "contact": {
+         "isActive": false
+      },
+      "casePanel": {
+         "customrCaseId": "UUID",
+         "isActive": true
+      }
+   },
+   "handling": {
+      "customer": {
+         "isActive": true,
+         "isFocus": false
+      },
+      "contact": {
+         "isActive": false,
+         "isFocus": true
+      },
+      "quickCase": {
+         "isActive": false,
+         "isFocus": false
+      },
+      "ActivityLog": {
+         "isActive": false,
+         "isFocus": false
+      }
+   },
+   "contacts": [
+      {
+         "contactId": "UUID2",
+         "channelCode": "EMAIL",
+         "interactionDirectionCode": "IN"
+      }
+   ],
+   "workingTime": {
+      "enableCounter": true,
+      "currentState": "wrap",
+      "currentDuration": 112,
+      "warningDuration": 120,
+      "overDueDuration": 125
+   },
+   "kb": {
+      "isVisible": true
+   }
+}

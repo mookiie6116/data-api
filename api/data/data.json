@@ -1,0 +1,53 @@
+{
+   "focus": {
+      "case": "#casePanel",
+      "handling": "contact"
+   },
+   "case": {
+      "customer": {
+         "isActive": false
+      },
+      "contact": {
+         "isActive": false
+      },
+      "casePanel": {
+         "customrCaseId": "UUID",
+         "isActive": true
+      }
+   },
+   "handling": {
+      "customer": {
+         "isActive": true,
+         "isFocus": false
+      },
+      "contact": {
+         "isActive": false,
+         "isFocus": true
+      },
+      "quickCase": {
+         "isActive": false,
+         "isFocus": false
+      },
+      "ActivityLog": {
+         "isActive": false,
+         "isFocus": false
+      }
+   },
+   "interactions": [
+      {
+         "contactId": "UUID2",
+         "channelCode": "EMAIL",
+         "interactionDirectionCode": "IN"
+      }
+   ],
+   "workingTime": {
+      "enableCounter": true,
+      "currentState": "wrap",
+      "currentDuration": 112,
+      "warningDuration": 120,
+      "overDueDuration": 125
+   },
+   "kb": {
+      "isVisible": true
+   }
+}
