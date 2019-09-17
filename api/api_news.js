@@ -3,6 +3,7 @@ var router = express.Router();
 var db = require("../models/connectMssql");
 var moment = require("moment")
 moment.locale('th')
+
 router.get("/news", function (req, res) {
   let userId = req.query.userId;
   let newsId = req.query.newsId;
@@ -340,4 +341,5 @@ router.post("/deleteImage", function (req, res) {
     res.status(200).json('OK')
   })
 })
+
 module.exports = router;

@@ -34,11 +34,6 @@
       }
    },
    "interactions": [
-      {
-         "contactId": "UUID2",
-         "channelCode": "EMAIL",
-         "interactionDirectionCode": "IN"
-      }
    ],
    "workingTime": {
       "enableCounter": true,

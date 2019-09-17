@@ -4,6 +4,7 @@ var db = require("../models/connectMssql");
 var data = require('./data/data.json')
 var mongo = require('./../models/connectMongo')
 var interactions = require('./../models/mock_interactions')
+var handelTabs = require('./../models/mock_handelTabs')
 
 router.get("/customer", function (req, res) {
   let sql = ` SELECT TOP 10
@@ -39,7 +40,6 @@ router.get("/customer-3", function (req, res) {
     let dataSet = response.map(item => {
       interactions.find({ customerId: item.customerId })
         .then(response => {
-          console.log(response)
           return { ...item, ...response, ...data }
         })
     })
@@ -50,10 +50,9 @@ router.get("/customer-3", function (req, res) {
   })
 })
 
-
 router.get("/customer/:id", function (req, res) {
   let id = req.params.id;
-  let sql = ` SELECT TOP 10
+  let sql = ` SELECT
                 customer.id as customerId,
                 customer.abbr as customerAbbr,
                 customer.abbr_color as customerAbbrColor,
@@ -63,16 +62,21 @@ router.get("/customer/:id", function (req, res) {
                 null as customerDescription,
                 'case' as subMenu
               FROM customer
-              WHERE customer.id = '${id}'`;
+              LEFT JOIN interaction ON customer.id = interaction.customer_id
+							where interaction.id = '${id}'`;
   db.query(sql, function (response) {
-    interactions.find({ customerId: response[0].customerId }).then(dataInteractions => {
-      let dataset = {
-        ...response[0],
-        ...data
-      }
-      dataset.interactions = dataInteractions
-      res.status(200).json(dataset)
-    })
+    if (0 < response.length) {
+      interactions.find({ customerId: response[0].customerId }).then(dataInteractions => {
+        let dataset = {
+          ...response[0],
+          ...data
+        }
+        dataset.interactions = dataInteractions
+        res.status(200).json(dataset)
+      })
+    } else {
+      res.status(404).json("user not found")
+    }
   })
 })
 
@@ -114,13 +118,97 @@ router.put("/customer-2", function (req, res) {
 })
 
 router.post("/customer", function (req, res) {
-  let dataset = new interactions({ ...req.body })
+  let randoms = makeid(15);
+  let dataset = new interactions({ interactionId: randoms,...req.body })
   dataset.save(function (err) {
-    dataset.contactId = dataset._id
-    console.log(dataset);
+    dataset.contactId = dataset.interactionId
     if (err) res.status(500).json('fail')
     res.status(200).json(dataset)
   })
 })
+
+router.delete("/customer", function (req, res) {
+  interactions.deleteMany({}).then(() => {
+    res.status(200).json("OK")
+  });
+})
+
+router.delete("/customer/:id", function (req, res) {
+  let id = req.params.id;
+  if (id) {
+    interactions.deleteOne({ "interactionId": id }).then(() => {
+      res.status(200).json("OK")
+    });
+  } else {
+    res.status(404).json("id undefined")
+  }
+})
+
+router.get("/tabs", function (req, res) {
+  handelTabs.find({}, {
+    id: 1,
+    activityLog: 1,
+    leadInfo: 1,
+    customerInformation: 1,
+    policyInformation: 1,
+    contactHandling: 1,
+    campaign: 1,
+    campaignAssign: 1,
+    case: 1,
+    customerProfile: 1
+  }).then(dataHandelTabs => {
+    res.status(200).json(dataHandelTabs)
+  })
+})
+
+router.get("/tabs/:id", function (req, res) {
+  handelTabs.find({id: req.params.id}, {
+    id: 1,
+    activityLog: 1,
+    leadInfo: 1,
+    customerInformation: 1,
+    policyInformation: 1,
+    contactHandling: 1,
+    campaign: 1,
+    campaignAssign: 1,
+    case: 1,
+    customerProfile: 1
+  }).then(dataHandelTabs => {
+    res.status(200).json(dataHandelTabs[0])
+  })
+})
+
+router.post("/tabs", function (req, res) {
+  let { id } = req.body;
+  handelTabs.find({ id: id }).then(dataHandelTabs => {
+    if (dataHandelTabs.length) {
+      // edit
+      handelTabs.findOneAndUpdate({ id: id }, req.body)
+        .then(data => {
+          return res.status(200).json(req.body)
+        }).catch(err => {
+          return res.status(500).json("update fail")
+        })
+
+    } else {
+      // add
+      let dataset = new handelTabs({ ...req.body })
+      dataset.save(function (err) {
+        if (err) res.status(500).json('insert fail')
+        res.status(200).json(dataset)
+      })
+    }
+  })
+})
+
+function makeid(length) {
+  var result           = '';
+  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var charactersLength = characters.length;
+  for ( var i = 0; i < length; i++ ) {
+     result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
 
 module.exports = router;

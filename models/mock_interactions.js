@@ -3,6 +3,9 @@ const Schema = mongoose.Schema;
 
 const interactionSchema = new Schema(
   { 
+    interactionId:{
+      type: String
+    },
     customerId:{
       type: String
     },
