@@ -62,10 +62,9 @@ router.get("/news", function (req, res) {
                                        WHERE news_id ='${element.id}' 
                                         AND is_thumbnail = '1'
                                         AND is_deleted = '0'`;
-              db.queryOne(sql_news_attachment, function (response) {
+              db.query(sql_news_attachment, function (response) {
                 data.items[i].attachments = response.length ? response : []
                 res(response)
-                // db.disconnect();
               })
             }
             else {
@@ -86,7 +85,7 @@ router.get("/news-id", function (req, res) {
   let newsId = req.query.newsId;
   let data;
   let promise = new Promise((resolve, reject) => {
-      let sql = ` SELECT a.id,
+    let sql = ` SELECT a.id,
                       a.subject as topic ,
                       a.content ,
                       a.create_date as createDate,
@@ -102,10 +101,10 @@ router.get("/news-id", function (req, res) {
                       AND a.id = '${newsId}'
                       AND c.user_id = '${userId}'
                     ;`;
-      db.query(sql, function (response) {
-        data = response
-        resolve(data)
-      })
+    db.query(sql, function (response) {
+      data = response
+      resolve(data)
+    })
   })
     .then(json => {
       return new Promise((resolve, reject) => {
@@ -200,34 +199,35 @@ router.get("/news/id", function (req, res) {
   })
 })
 router.post("/addContent", function (req, res) {
+  let newsId = req.body.newsId
   let subject = req.body.subject
   let content = req.body.content
   let start_date = req.body.start_date
   let end_date = req.body.end_date
   let userId = req.body.userId
   let recipient = req.body.recipient
-  let promise = new Promise((resolve, reject) => {
-    let sql = `INSERT INTO news (subject, content, start_date,end_date,create_by)
-              VALUES ('${subject}', '${content}', '${start_date}','${end_date}','${userId}');`
-    db.query(sql, function (response) {
-      resolve()
-    })
-  })
-    .then(json => {
+  let attachments = req.body.attachments
+  if (!newsId) {
+    let promise = new Promise((resolve, reject) => {
+      let sql = `INSERT INTO news (subject, content, start_date,end_date,create_by)
+                VALUES ('${subject}', '${content}', '${start_date}','${end_date}','${userId}');`
+      db.query(sql, function (response) {
+        resolve()
+      })
+    }).then(json => {
       return new Promise((resolve, reject) => {
         let news_id = `SELECT id
-                      FROM news
-                      WHERE subject = '${subject}'
-                          AND  content = '${content}'
-                          AND  start_date = '${start_date}'
-                          AND  end_date = '${end_date}'
-                          AND  create_by = '${userId}'`
+                        FROM news
+                        WHERE subject = '${subject}'
+                            AND  content = '${content}'
+                            AND  start_date = '${start_date}'
+                            AND  end_date = '${end_date}'
+                            AND  create_by = '${userId}'`
         db.query(news_id, function (response) {
           resolve(response[0].id);
         })
       })
-    })
-    .then(json => {
+    }).then(json => {
       return new Promise((resolve, reject) => {
         for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
           p = p.then(_ => new Promise(res => {
@@ -235,10 +235,10 @@ router.post("/addContent", function (req, res) {
               const element = recipient[i];
               console.log(element);
               let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
-                                    VALUES ('${json}','${element}');`
-              db.queryOne(sql_recipient, function (response) {
+                                      VALUES ('${json}','${element}');`
+              db.query(sql_recipient, function (response) {
                 res(response)
-                db.disconnect();
+
               })
             }
             else {
@@ -247,10 +247,117 @@ router.post("/addContent", function (req, res) {
           }));
         }
       })
-    })
-    .then(json => {
+    }).then(json => {
+      return new Promise((resolve, reject) => {
+        for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
+          p = p.then(_ => new Promise(res => {
+            let date = moment().format('YYYY-MM-DD HH:mm:ss');
+            if (i < attachments.length) {
+              if (!element.is_delete) {
+                let sql_attachment = `UPDATE news_attachment
+                    SET is_delete = '1'
+                    WHERE news_id = '${json} 
+                      AND file_id = '${element.fileId}';`
+                db.query(sql_attachment, function (response) {
+                  res(response)
+                })
+              } else {
+                const element = attachments[i];
+                let sql_attachment = `INSERT INTO news_attachment (file_id, name, size,contenty_type,create_by,news_id,is_thumbnail)
+                  VALUES ('${element.fileId}','${element.name}','${element.size}','${element.mimeType}','${userId}','${json}','${element.is_thumbnail}');`
+                db.query(sql_attachment, function (response) {
+                  res(response)
+                })
+              }
+            }
+            else {
+              resolve(json)
+            }
+          }));
+        }
+      })
+    }).then(json => {
       res.status(200).json({ "news_id": json })
     })
+  } else {
+    let date = moment().format('YYYY-MM-DD HH:mm:ss');
+    let promise = new Promise((resolve, reject) => {
+      let sql = `DELETE FROM news_recipient WHERE news_id = '${newsId}';`
+      db.query(sql, function (response) {
+        resolve(newsId)
+      })
+    }).then(json => {
+      return new Promise((resolve, reject) => {
+        let sql_update = `UPDATE news
+                  SET subject = '${subject}', 
+                      content = '${content}', 
+                      start_date = '${start_date}',
+                      end_date = '${end_date}',
+                      update_date = '${date}',
+                      update_by = '${userId}'
+                  WHERE id = '${json}';`
+        db.query(sql_update, function (response) {
+          resolve(json)
+        })
+      })
+    }).then(json => {
+      return new Promise((resolve, reject) => {
+        for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
+          p = p.then(_ => new Promise(res => {
+            if (i < recipient.length) {
+              const element = recipient[i];
+              let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
+                                    VALUES ('${json}','${element}');`
+              db.query(sql_recipient, function (response) {
+                res(response)
+
+              })
+            }
+            else {
+              resolve(json)
+            }
+          }));
+        }
+      })
+    }).then(json => {
+      return new Promise((resolve, reject) => {
+        for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
+          p = p.then(_ => new Promise(res => {
+            let date = moment().format('YYYY-MM-DD HH:mm:ss');
+            if (i < attachments.length) {
+              if (!element.is_delete) {
+                let sql_attachment = `UPDATE news_attachment
+                  SET is_delete = '1'
+                  WHERE news_id = '${json} 
+                    AND file_id = '${element.fileId}';`
+                db.query(sql_attachment, function (response) {
+                  res(response)
+                })
+              } else {
+                const element = attachments[i];
+                let sql_attachment = `UPDATE news_attachment
+                                          SET name = '${element.name}',
+                                              size = '${element.size}',
+                                              contenty_type = '${element.mimeType}',
+                                              create_by = '${userId}',
+                                              is_thumbnail = '${element.is_thumbnail}'
+                                          WHERE file_id = '${element.fileId}'
+                                            AND news_id = '${json}'`
+                db.query(sql_attachment, function (response) {
+                  res(response)
+                })
+              }
+            }
+            else {
+              resolve(json)
+            }
+          }));
+        }
+      })
+    }).then(json => {
+      res.status(200).json({ "news_id": json })
+    })
+  }
 })
 router.post("/editContent", function (req, res) {
   let newsId = req.body.newsId
@@ -260,51 +367,10 @@ router.post("/editContent", function (req, res) {
   let end_date = req.body.end_date
   let userId = req.body.userId
   let recipient = req.body.recipient
-  let date = moment().format('YYYY-MM-DD HH:mm:ss');
-  let promise = new Promise((resolve, reject) => {
-    let sql = `DELETE FROM news_recipient WHERE news_id = '${newsId}';`
-    db.query(sql, function (response) {
-      resolve(newsId)
-    })
-  }).then(json => {
-    return new Promise((resolve, reject) => {
-      let sql_update = `UPDATE news
-                SET subject = '${subject}', 
-                    content = '${content}', 
-                    start_date = '${start_date}',
-                    end_date = '${end_date}',
-                    update_date = '${date}',
-                    update_by = '${userId}'
-                WHERE id = '${json}';`
-      db.query(sql_update, function (response) {
-        resolve(json)
-      })
-    })
-  }).then(json => {
-    return new Promise((resolve, reject) => {
-      for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
-        p = p.then(_ => new Promise(res => {
-          if (i < recipient.length) {
-            const element = recipient[i];
-            let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
-                                  VALUES ('${json}','${element}');`
-            db.queryOne(sql_recipient, function (response) {
-              res(response)
-              db.disconnect();
-            })
-          }
-          else {
-            resolve(json)
-          }
-        }));
-      }
-    })
-  }).then(json => {
-    res.status(200).json({ "news_id": json })
-  })
+
 })
 router.post("/addImage", function (req, res) {
-  let file_id = req.body.file_id
+  let file_id = req.body.fileId
   let name = req.body.name
   let size = req.body.size
   let contenty_type = req.body.contenty_type
@@ -330,6 +396,7 @@ router.post("/deleteContent", function (req, res) {
     res.status(200).json('OK')
   })
 })
+
 router.post("/deleteImage", function (req, res) {
   let newsId = req.body.newsId
   let fileId = req.body.fileId

@@ -34,17 +34,6 @@ module.exports = {
                 }
             });
     },
-    queryOne: function (sql, callback) {
-            mssql.query(sql, function ( err,result, fields) {
-                if (err) {
-                    console.log(moment().format('DD/MM/YYYY HH:mm:ss') + " - Error Query : " + err);
-                    callback(err);
-                }
-                else {
-                    callback(result.recordsets[0])
-                }
-            })
-    },
     disconnect: function () {
         mssql.close();
         console.log(moment().format('DD/MM/YYYY HH:mm:ss') + " - disconnected ");
