@@ -6,7 +6,11 @@ moment.locale('th')
 
 router.get("/show", function (req, res) {
   let userId = req.query.userId;
-  let sql = `SELECT CONCAT(SUBSTRING(user_note.description, 0, 100),'...') AS topic ,
+  let sql = `SELECT 
+                CASE
+                  WHEN LEN(user_note.description) > 50 THEN CONCAT(SUBSTRING(user_note.description, 0, 50),'...')
+                  ELSE user_note.description
+                END AS topic,
                 user_note.description,
                 user_note.id,
                 user_note.is_sticky,
@@ -30,7 +34,11 @@ router.get("/show", function (req, res) {
 
 router.get("/showId", function (req, res) {
   let id = req.query.id;
-  let sql = `SELECT CONCAT(SUBSTRING(user_note.description, 0, 100),'...') AS topic ,
+  let sql = `SELECT 
+                CASE
+                  WHEN LEN(user_note.description) > 50 THEN CONCAT(SUBSTRING(user_note.description, 0, 50),'...')
+                  ELSE user_note.description
+                END AS topic,
                 user_note.description,
                 user_note.is_sticky,
                 user_note.update_date,

@@ -5,6 +5,7 @@ var data = require('./data/data.json')
 var mongo = require('./../models/connectMongo')
 var interactions = require('./../models/mock_interactions')
 var handelTabs = require('./../models/mock_handelTabs')
+const uuidv1 = require('uuid/v1');
 
 router.get("/customer", function (req, res) {
   let sql = ` SELECT TOP 10
@@ -118,8 +119,7 @@ router.put("/customer-2", function (req, res) {
 })
 
 router.post("/customer", function (req, res) {
-  let randoms = makeid(15);
-  let dataset = new interactions({ interactionId: randoms,...req.body })
+  let dataset = new interactions({ interactionId: uuidv1(), ...req.body })
   dataset.save(function (err) {
     dataset.contactId = dataset.interactionId
     if (err) res.status(500).json('fail')
@@ -144,6 +144,17 @@ router.delete("/customer/:id", function (req, res) {
   }
 })
 
+router.post("/transfer", function (req, res) {
+  let id_transfer = req.body.customerId
+  let interactionId = req.body.interactionId
+  interactions.findOneAndUpdate({ interactionId: interactionId },{customerId: id_transfer})
+  .then(data => {
+    return res.status(200).json("OK")
+  }).catch(err => {
+    return res.status(500).json("update fail")
+  })
+})
+
 router.get("/tabs", function (req, res) {
   handelTabs.find({}, {
     id: 1,
@@ -162,7 +173,7 @@ router.get("/tabs", function (req, res) {
 })
 
 router.get("/tabs/:id", function (req, res) {
-  handelTabs.find({id: req.params.id}, {
+  handelTabs.find({ id: req.params.id }, {
     id: 1,
     activityLog: 1,
     leadInfo: 1,
@@ -200,15 +211,5 @@ router.post("/tabs", function (req, res) {
     }
   })
 })
-
-function makeid(length) {
-  var result           = '';
-  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  var charactersLength = characters.length;
-  for ( var i = 0; i < length; i++ ) {
-     result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-}
 
 module.exports = router;
