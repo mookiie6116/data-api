@@ -3,8 +3,8 @@ moment.locale('th');
 
 var mssql = require('mssql')
 const config = {
-    user: 'Ruamitr_mook',
-    password: "0hk'.shdHw,j[vd",
+    user: 'sa',
+    password: "P@ssw0rd",
     server: '172.18.60.3',
     database: 'ruamitr',
     options: {
@@ -24,15 +24,15 @@ module.exports = {
         })
     },
     query: function (sql, callback) {
-            mssql.query(sql, function ( err,result, fields) {
-                if (err) {
-                    console.log(moment().format('DD/MM/YYYY HH:mm:ss') + " - Error Query : " + err);
-                    callback(err);
-                }
-                else {
-                    callback(result.recordsets[0])
-                }
-            });
+        mssql.query(sql, function (err, result, fields) {
+            if (err) {
+                console.log(moment().format('DD/MM/YYYY HH:mm:ss') + " - Error Query : " + err);
+                callback(err);
+            }
+            else {
+                callback(result.recordsets[0])
+            }
+        });
     },
     disconnect: function () {
         mssql.close();

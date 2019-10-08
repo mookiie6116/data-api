@@ -2,7 +2,19 @@ var express = require("express");
 var router = express.Router();
 var db = require("../models/connectMssql");
 var moment = require("moment")
+const path = require('path');
+const fs = require('fs-extra');
+const formidable = require('formidable');
+var base64Img = require('base64-img');
+const bodyParser = require("body-parser");
+const uuidv1 = require('uuid/v1');
+
 moment.locale('th')
+
+var urlencodedParser = bodyParser.urlencoded({
+  extended: true,
+  limit: '2147483648'
+});
 
 router.get("/news", function (req, res) {
   let userId = req.query.userId;
@@ -15,7 +27,9 @@ router.get("/news", function (req, res) {
               WHERE is_delete = 0
                 AND enable = 1
                 AND GETDATE() BETWEEN a.start_date AND a.end_date
-                AND b.user_id = '${userId}';`;
+                AND a.status = 'approved'
+                AND b.user_id = '${userId}'
+                ;`;
   let promise = new Promise((resolve, reject) => {
     db.query(sql, function (response) {
       data.pagination = {
@@ -38,12 +52,16 @@ router.get("/news", function (req, res) {
                     WHERE a.is_delete = 0
                       AND a.enable = 1
                       AND GETDATE() BETWEEN a.start_date AND a.end_date
+                      AND a.status = 'approved'
                       AND c.user_id = '${userId}'
+                    ORDER BY a.id
                     ;`;
           db.query(sql, function (response) {
             data.items = response
             resolve(data)
           })
+        } else {
+          res.status(200).json('data not found')
         }
       })
     })
@@ -56,7 +74,7 @@ router.get("/news", function (req, res) {
             if (i < json.pagination.totalcount) {
               const element = array[i];
               let sql_news_attachment = `SELECT
-                                        CONCAT('http://172.18.60.2:8009/api/v1/utility/file/download/',news_attachment.file_id) as urlFile,
+                                        CONCAT('http://172.18.60.2:9002/user/downloadImg/',news_attachment.name) as urlFile,
                                         news_attachment.is_thumbnail
                                        FROM news_attachment
                                        WHERE news_id ='${element.id}' 
@@ -113,7 +131,7 @@ router.get("/news-id", function (req, res) {
                                         news_attachment.name,
                                         news_attachment.expiration_date,
                                         news_attachment.content_type,
-                                        CONCAT('http://172.18.60.2:8009/api/v1/utility/file/download/',news_attachment.file_id) as urlFile,
+                                        CONCAT('http://172.18.60.2:9002/user/downloadImg/',news_attachment.name) as urlFile,
                                         news_attachment.is_thumbnail
                                        FROM news_attachment
                                        WHERE news_id ='${newsId}' 
@@ -135,8 +153,10 @@ router.get("/news/data", function (req, res) {
   let perPage = 20;
   let data = { "pagination": {}, "items": {} };
 
-  let sql = ` SELECT *
-              FROM news 
+  let sql = ` SELECT news.id,	news.subject,	news.content,	news.start_date, news.end_date, news.update_date,	news.update_by,
+	              CONCAT(user_ruamitr.first_name,' ',user_ruamitr.last_name) as update_name
+              FROM news
+              LEFT JOIN user_ruamitr on news.update_by = user_ruamitr.user_id
               WHERE is_delete = 0
               ORDER BY id desc `;
   let promise = new Promise((resolve, reject) => {
@@ -202,183 +222,190 @@ router.post("/addContent", function (req, res) {
   let newsId = req.body.newsId
   let subject = req.body.subject
   let content = req.body.content
-  let start_date = req.body.start_date
-  let end_date = req.body.end_date
+  let start_date = req.body.times[0]
+  let end_date = req.body.times[1]
   let userId = req.body.userId
-  let recipient = req.body.recipient
-  let attachments = req.body.attachments
+  let recipient = req.body.assignTo
+  let thumbnail = req.body.thumbnail
+  let attachments = req.body.images
+  let status =  req.body.images? `'${req.body.images}'` : null
   if (!newsId) {
-    let promise = new Promise((resolve, reject) => {
-      let sql = `INSERT INTO news (subject, content, start_date,end_date,create_by)
-                VALUES ('${subject}', '${content}', '${start_date}','${end_date}','${userId}');`
-      db.query(sql, function (response) {
-        resolve()
-      })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        let news_id = `SELECT id
+  let promise = new Promise((resolve, reject) => {
+    let sql = `INSERT INTO news (subject, content, start_date,end_date,create_by,update_by,status)
+                VALUES ('${subject}', '${content}', '${start_date}','${end_date}','${userId}','${userId}',${status});`
+    db.query(sql, function (response) {
+      resolve()
+    })
+  }).then(json => {
+    return new Promise((resolve, reject) => {
+      let news_id = `SELECT id
                         FROM news
                         WHERE subject = '${subject}'
                             AND  content = '${content}'
                             AND  start_date = '${start_date}'
                             AND  end_date = '${end_date}'
                             AND  create_by = '${userId}'`
-        db.query(news_id, function (response) {
-          resolve(response[0].id);
-        })
+      db.query(news_id, function (response) {
+        resolve(response[0].id);
       })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
-          p = p.then(_ => new Promise(res => {
-            if (i < recipient.length) {
-              const element = recipient[i];
-              console.log(element);
-              let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
-                                      VALUES ('${json}','${element}');`
-              db.query(sql_recipient, function (response) {
-                res(response)
-
-              })
-            }
-            else {
-              resolve(json)
-            }
-          }));
-        }
-      })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
-          p = p.then(_ => new Promise(res => {
-            let date = moment().format('YYYY-MM-DD HH:mm:ss');
-            if (i < attachments.length) {
-              if (!element.is_delete) {
-                let sql_attachment = `UPDATE news_attachment
-                    SET is_delete = '1'
-                    WHERE news_id = '${json} 
-                      AND file_id = '${element.fileId}';`
-                db.query(sql_attachment, function (response) {
-                  res(response)
-                })
-              } else {
-                const element = attachments[i];
-                let sql_attachment = `INSERT INTO news_attachment (file_id, name, size,contenty_type,create_by,news_id,is_thumbnail)
-                  VALUES ('${element.fileId}','${element.name}','${element.size}','${element.mimeType}','${userId}','${json}','${element.is_thumbnail}');`
-                db.query(sql_attachment, function (response) {
-                  res(response)
-                })
-              }
-            }
-            else {
-              resolve(json)
-            }
-          }));
-        }
-      })
-    }).then(json => {
-      res.status(200).json({ "news_id": json })
     })
-  } else {
-    let date = moment().format('YYYY-MM-DD HH:mm:ss');
-    let promise = new Promise((resolve, reject) => {
-      let sql = `DELETE FROM news_recipient WHERE news_id = '${newsId}';`
-      db.query(sql, function (response) {
-        resolve(newsId)
-      })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        let sql_update = `UPDATE news
-                  SET subject = '${subject}', 
-                      content = '${content}', 
-                      start_date = '${start_date}',
-                      end_date = '${end_date}',
-                      update_date = '${date}',
-                      update_by = '${userId}'
-                  WHERE id = '${json}';`
-        db.query(sql_update, function (response) {
+  }).then(json => {
+    return new Promise((resolve, reject) => {
+      for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
+        p = p.then(_ => new Promise(res => {
+          if (i < recipient.length) {
+            const element = recipient[i];
+            let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
+                                      VALUES ('${json}','${element}');`
+            db.query(sql_recipient, function (response) {
+              res(response)
+            })
+          }
+          else {
+            resolve(json)
+          }
+        }));
+      }
+    })
+  }).then(json => {
+    return new Promise((resolve, reject) => {
+      for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
+        p = p.then(_ => new Promise(res => {
+          let date = moment().format('YYYY-MM-DD HH:mm:ss');
+          if (i < attachments.length) {
+            const element = attachments[i];
+            let fileId = uuidv1()
+            base64ToImage(element, function (data) {
+              let sql_attachment = `INSERT INTO news_attachment (file_id, name,create_by,news_id,is_thumbnail)
+              VALUES ('${fileId}','${data}','${userId}','${json}','0');`
+              db.query(sql_attachment, function (response) {
+                res(response)
+              })
+            })
+          }
+          else {
+            resolve(json)
+          }
+        }));
+      }
+    })
+  }).then(json => {
+    return new Promise((resolve, reject) => {
+      let fileId = uuidv1()
+      base64ToImage(thumbnail, function (data) {
+        let sql_attachment = `INSERT INTO news_attachment (file_id, name,create_by,news_id,is_thumbnail)
+        VALUES ('${fileId}','${data}','${userId}','${json}','1');`
+        db.query(sql_attachment, function (response) {
           resolve(json)
         })
       })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
-          p = p.then(_ => new Promise(res => {
-            if (i < recipient.length) {
-              const element = recipient[i];
-              let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
-                                    VALUES ('${json}','${element}');`
-              db.query(sql_recipient, function (response) {
-                res(response)
-
-              })
-            }
-            else {
-              resolve(json)
-            }
-          }));
-        }
-      })
-    }).then(json => {
-      return new Promise((resolve, reject) => {
-        for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
-          p = p.then(_ => new Promise(res => {
-            let date = moment().format('YYYY-MM-DD HH:mm:ss');
-            if (i < attachments.length) {
-              if (!element.is_delete) {
-                let sql_attachment = `UPDATE news_attachment
-                  SET is_delete = '1'
-                  WHERE news_id = '${json} 
-                    AND file_id = '${element.fileId}';`
-                db.query(sql_attachment, function (response) {
-                  res(response)
-                })
-              } else {
-                const element = attachments[i];
-                let sql_attachment = `UPDATE news_attachment
-                                          SET name = '${element.name}',
-                                              size = '${element.size}',
-                                              contenty_type = '${element.mimeType}',
-                                              create_by = '${userId}',
-                                              is_thumbnail = '${element.is_thumbnail}'
-                                          WHERE file_id = '${element.fileId}'
-                                            AND news_id = '${json}'`
-                db.query(sql_attachment, function (response) {
-                  res(response)
-                })
-              }
-            }
-            else {
-              resolve(json)
-            }
-          }));
-        }
-      })
-    }).then(json => {
-      res.status(200).json({ "news_id": json })
     })
-  }
-})
-router.post("/editContent", function (req, res) {
-  let newsId = req.body.newsId
-  let subject = req.body.subject
-  let content = req.body.content
-  let start_date = req.body.start_date
-  let end_date = req.body.end_date
-  let userId = req.body.userId
-  let recipient = req.body.recipient
+  }).then(json => {
+    res.status(200).json({ "news_id": json })
+  })
+  } else {
+  // let date = moment().format('YYYY-MM-DD HH:mm:ss');
+  // let promise = new Promise((resolve, reject) => {
+  //   let sql = `DELETE FROM news_recipient WHERE news_id = '${newsId}';`
+  //   db.query(sql, function (response) {
+  //     resolve(newsId)
+  //   })
+  // }).then(json => {
+  //   return new Promise((resolve, reject) => {
+  //     let sql_update = `UPDATE news
+  //                 SET subject = '${subject}', 
+  //                     content = '${content}', 
+  //                     start_date = '${start_date}',
+  //                     end_date = '${end_date}',
+  //                     update_date = '${date}',
+  //                     update_by = '${userId}'
+  //                 WHERE id = '${json}';`
+  //     db.query(sql_update, function (response) {
+  //       resolve(json)
+  //     })
+  //   })
+  // }).then(json => {
+  //   return new Promise((resolve, reject) => {
+  //     for (let i = 0, p = Promise.resolve(); i <= recipient.length; i++) {
+  //       p = p.then(_ => new Promise(res => {
+  //         if (i < recipient.length) {
+  //           const element = recipient[i];
+  //           let sql_recipient = `INSERT INTO news_recipient (news_id, user_id)
+  //                                   VALUES ('${json}','${element}');`
+  //           db.query(sql_recipient, function (response) {
+  //             res(response)
 
+  //           })
+  //         }
+  //         else {
+  //           resolve(json)
+  //         }
+  //       }));
+  //     }
+  //   })
+  // }).then(json => {
+  //   return new Promise((resolve, reject) => {
+  //     for (let i = 0, p = Promise.resolve(); i <= attachments.length; i++) {
+  //       p = p.then(_ => new Promise(res => {
+  //         let date = moment().format('YYYY-MM-DD HH:mm:ss');
+  //         if (i < attachments.length) {
+  //           const element = attachments[i];
+  //           let fileId = uuidv1()
+  //           base64ToImage(element, function (data) {
+  //             let sql_attachment = `UPDATE news_attachment
+  //                 SET name = '${data}',
+  //                     size = 0,
+  //                     content_type = '',
+  //                     create_by = '${userId}',
+  //                     is_thumbnail = 0
+  //                 WHERE file_id = '${fileId}'
+  //                   AND news_id = '${json}'`
+  //             db.query(sql_attachment, function (response) {
+  //               res(response)
+  //             })
+
+  //           })
+
+  //         }
+  //         else {
+  //           resolve(json)
+  //         }
+  //       }));
+  //     }
+  //   })
+  // }).then(json => {
+  //   return new Promise((resolve, reject) => {
+  //     let fileId = uuidv1()
+  //     base64ToImage(thumbnail, function (data) {
+  //       let sql_attachment = `UPDATE news_attachment
+  //                 SET name = '${data}',
+  //                     size = 0,
+  //                     content_type = '',
+  //                     create_by = '${userId}',
+  //                     is_thumbnail = 1
+  //                 WHERE file_id = '${fileId}'
+  //                   AND news_id = '${json}'`
+  //       db.query(sql_attachment, function (response) {
+  //         resolve(json)
+  //       })
+  //     })
+  //   })
+  // })
+  //   .then(json => {
+  //     res.status(200).json({ "news_id": json })
+  //   })
+  }
 })
 router.post("/addImage", function (req, res) {
   let file_id = req.body.fileId
   let name = req.body.name
   let size = req.body.size
-  let contenty_type = req.body.contenty_type
+  let content_type = req.body.content_type
   let create_by = req.body.userId
   let news_id = req.body.newsId
   let is_thumbnail = req.body.thumbnail
-  let sql = `INSERT INTO news_attachment (file_id, name, size,contenty_type,create_by,news_id,is_thumbnail)
-              VALUES ('${file_id}','${name}','${size}','${contenty_type}','${create_by}','${news_id}','${is_thumbnail}');`
+  let sql = `INSERT INTO news_attachment (file_id, name, size,content_type,create_by,news_id,is_thumbnail)
+              VALUES ('${file_id}','${name}','${size}','${content_type}','${create_by}','${news_id}','${is_thumbnail}');`
   db.query(sql, function (response) {
     res.status(200).json(response)
   })
@@ -396,7 +423,6 @@ router.post("/deleteContent", function (req, res) {
     res.status(200).json('OK')
   })
 })
-
 router.post("/deleteImage", function (req, res) {
   let newsId = req.body.newsId
   let fileId = req.body.fileId
@@ -408,5 +434,60 @@ router.post("/deleteImage", function (req, res) {
     res.status(200).json('OK')
   })
 })
+
+router.post("/upload", function (req, res, next) {
+  var form = new formidable.IncomingForm();
+  form.parse(req, function (err, fields, files) {
+    console.log(files);
+    console.log(fields);
+    var file = files.file
+    // upload(file,function (data) {
+    //   console.log(data);
+    // })
+  })
+})
+
+router.get("/downloadImg/:filename", function (req, res, next) {
+  let filename = req.params.filename
+  res.sendFile(`${path.resolve("uploads")}/${filename}`);
+})
+
+function upload(file, callback) {
+  var id = `${new Date().getTime()}_${Math.floor(Math.random() * (10000 - 1000)) + 1000}`
+  var oldpath = file.path;
+  var newfile = `${id}.${file.name.split(".")[1]}`;
+  var newpath = path.resolve("uploads") + "/" + newfile;
+  fs.move(oldpath, newpath, function (err) {
+    if (err) { callback() }
+    else { callback(newfile) }
+  });
+}
+function ImageToBase64(file, callback) {
+  console.log("base64Image");
+  var oldpath = file.path;
+  base64Img.base64(oldpath, function (err, data) {
+    if (err) { callback() }
+    else { callback(data) }
+  });
+}
+
+function base64ToImage(file, callback) {
+  var id = `${new Date().getTime()}_${Math.floor(Math.random() * (10000 - 1000)) + 1000}`
+  return new Promise((resolve, reject) => {
+  base64Img.img(file, path.resolve("uploads"), id, function (err, filepath) {
+    if (err) { reject() }
+    else { 
+      let filename = filepath.split(path.resolve("uploads")+"\\")
+      resolve(filename[1])
+     }
+  });
+  }).then(data=>{
+    callback(data)
+  }).catch(err=>{
+    callback()
+  })
+}
+
+
 
 module.exports = router;
