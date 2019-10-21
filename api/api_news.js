@@ -18,7 +18,6 @@ var urlencodedParser = bodyParser.urlencoded({
 
 router.get("/news", function (req, res) {
   let userId = req.query.userId;
-  let newsId = req.query.newsId;
   let data = { "pagination": {}, "items": {} }
   let sql = ` SELECT *
               FROM news a
@@ -56,7 +55,7 @@ router.get("/news", function (req, res) {
                       AND c.user_id = '${userId}'
                     ORDER BY a.id
                     ;`;
-          db.query(sql, function (response) {
+            db.query(sql, function (response) {
             data.items = response
             resolve(data)
           })
@@ -204,7 +203,7 @@ router.get("/news/data/:id", function (req, res) {
     return new Promise((resolve, reject) => {
       let sql_news_attachment = `SELECT
           news_attachment.file_id as fileId,
-          CONCAT('http://localhost:9002/user/downloadImg/',news_attachment.name) as image
+          CONCAT('http://172.18.60.2:9002/user/downloadImg/',news_attachment.name) as image
         FROM news_attachment
         WHERE news_id ='${newsId}' 
           AND is_deleted = '0'
@@ -218,7 +217,7 @@ router.get("/news/data/:id", function (req, res) {
     return new Promise((resolve, reject) => {
       let sql_news_attachment = `SELECT
           news_attachment.file_id as fileId,
-          CONCAT('http://localhost:9002/user/downloadImg/',news_attachment.name) as url
+          CONCAT('http://172.18.60.2:9002/user/downloadImg/',news_attachment.name) as url
         FROM news_attachment
         WHERE news_id ='${newsId}' 
           AND is_deleted = '0'
@@ -253,7 +252,7 @@ router.post("/addContent", function (req, res) {
   let fileId = req.body.thumbnail.fileId
   let thumbnail = req.body.thumbnail.image
   let attachments = req.body.images
-  let status = req.body.status ? `'approve'` : null
+  let status = req.body.status ? `'approved'` : null
   if (!newsId) {
     let promise = new Promise((resolve, reject) => {
       let sql = `INSERT INTO news (subject, content, start_date,end_date,create_by,update_by,status)
