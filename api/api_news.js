@@ -145,6 +145,7 @@ router.get("/news-id", function (req, res) {
       res.status(200).json(json)
     })
 })
+
 router.get("/news/data", function (req, res) {
   let userId = req.params.userId;
   let offset = parseInt(req.query.offset);
@@ -190,7 +191,16 @@ router.get("/news/data", function (req, res) {
 router.get("/news/data/:id", function (req, res) {
   let newsId = req.params.id;
   let item
-  let sql = `SELECT id as newsId,	subject,	content,	start_date,	end_date	 FROM news WHERE id = '${newsId}'`
+  let sql = `SELECT id as newsId,
+                subject,	
+                CASE 
+                  WHEN content IS NULL OR content = 'null' THEN ''
+                  ELSE content
+                END AS content,
+                start_date,
+                end_date
+             FROM news 
+             WHERE id = '${newsId}'`
   let promise = new Promise((resolve, reject) => {
     db.query(sql, function (response) {
       if (response.length > 0) {
@@ -241,6 +251,7 @@ router.get("/news/data/:id", function (req, res) {
     res.status(200).json(json)
   })
 })
+
 router.post("/addContent", function (req, res) {
   let newsId = req.body.newsId
   let subject = req.body.subject

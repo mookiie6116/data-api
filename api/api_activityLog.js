@@ -1,6 +1,7 @@
 var express = require("express");
 var router = express.Router();
 var db = require("../models/connectMssql");
+var helper = require("../models/helper")
 
 router.get("/:id", function (req, res) {
   let customerId = req.params.id
@@ -20,7 +21,7 @@ router.get("/:id", function (req, res) {
               "interactionDate": element.interaction_date,
               "channelCode": element.channel_code,
               "interactionDirection": element.interaction_direction,
-              "hasAttachment": TrueAndFalse(element.has_attachment),
+              "hasAttachment": helper.TrueAndFalse(element.has_attachment),
               "subject": element.subject,
               "contactResult": element.contact_result_trace,
               "contactName": element.contact_name.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3'),
@@ -44,10 +45,10 @@ router.get("/:id", function (req, res) {
                     "description": element.tag_description
                   }
                 ],
-                "overSlaAccept": TrueAndFalse(element.over_sla_accept),
-                "overSlaResponse": TrueAndFalse(element.over_sla_response),
-                "overSlaClose": TrueAndFalse(element.over_sla_closed),
-                "allowFollow": TrueAndFalse(element.allow_follow)
+                "overSlaAccept": helper.TrueAndFalse(element.over_sla_accept),
+                "overSlaResponse": helper.TrueAndFalse(element.over_sla_response),
+                "overSlaClose": helper.TrueAndFalse(element.over_sla_closed),
+                "allowFollow": helper.TrueAndFalse(element.allow_follow)
               }
             }
             let sql_detail = `exec sp_GetInteractionPropActivityLog '${element.interaction_id}'`
@@ -63,18 +64,10 @@ router.get("/:id", function (req, res) {
         }));
       }
     })
+  }).then(json => {
+    let dataSet = { "items": json }
+    res.status(200).json(dataSet)
   })
-    .then(json => {
-      let dataSet = { "items": json }
-      res.status(200).json(dataSet)
-    })
 })
 
-function TrueAndFalse(params) {
-  if (params) {
-    return true
-  }else{
-    return false
-  }
-}
 module.exports = router;
