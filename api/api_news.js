@@ -25,7 +25,7 @@ router.get("/news", function (req, res) {
                       ON a.id = b.news_id
               WHERE is_delete = 0
                 AND enable = 1
-                AND GETDATE() BETWEEN a.start_date AND a.end_date
+                AND CAST(GETDATE() AS DATE) BETWEEN CAST(a.start_date AS DATE) AND CAST(a.end_date AS DATE)
                 AND a.status = 'approved'
                 AND b.user_id = '${userId}'
                 ;`;
@@ -50,7 +50,7 @@ router.get("/news", function (req, res) {
                       ON a.id = c.news_id
                     WHERE a.is_delete = 0
                       AND a.enable = 1
-                      AND GETDATE() BETWEEN a.start_date AND a.end_date
+                      AND CAST(GETDATE() AS DATE) BETWEEN CAST(a.start_date AS DATE) AND CAST(a.end_date AS DATE)
                       AND a.status = 'approved'
                       AND c.user_id = '${userId}'
                     ORDER BY a.id
@@ -114,10 +114,12 @@ router.get("/news-id", function (req, res) {
                       ON a.id = c.news_id
                     WHERE a.is_delete = 0
                       AND a.enable = 1
-                      AND GETDATE() BETWEEN a.start_date AND a.end_date
+                      AND CAST(GETDATE() AS DATE) BETWEEN CAST(a.start_date AS DATE) AND CAST(a.end_date AS DATE)
                       AND a.id = '${newsId}'
                       AND c.user_id = '${userId}'
                     ;`;
+                    console.log(sql);
+                    
     db.query(sql, function (response) {
       data = response
       resolve(data)
@@ -135,8 +137,12 @@ router.get("/news-id", function (req, res) {
                                        FROM news_attachment
                                        WHERE news_id ='${newsId}' 
                                         AND is_deleted = '0'`;
+                                        console.log(json);
         db.query(sql_news_attachment, function (response) {
-          json[0].attachments = response.length ? response : []
+          console.log(response);
+          console.log(response.length);
+          
+          json.attachments = response.length ? response : []
           resolve(json)
         })
       })
@@ -338,7 +344,7 @@ router.post("/addContent", function (req, res) {
       res.status(200).json({ "news_id": json })
     })
   } else {
-    let date = moment().format('YYYY-MM-DD HH:mm:ss');
+    let date = moment().utc().format('YYYY-MM-DD HH:mm:ss');
     let promise = new Promise((resolve, reject) => {
       let sqld = `DELETE FROM news_recipient WHERE news_recipient.news_id = ${newsId};`
       db.query(sqld, function (response) {

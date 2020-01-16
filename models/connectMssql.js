@@ -6,15 +6,15 @@ const config = {
     user: 'sa',
     password: "P@ssw0rd",
     server: '172.18.60.3',
-    database: 'ruamitr',
+    database: 'ruamitr_tfa',
     options: {
         encrypt: true // Use this if you're on Windows Azure
     },
-    // pool: {
-    //     requestTimeout: 300000,
-    //     max: 300,
-    //     idleTimeoutMillis: 300000
-    // }
+    pool: {
+        requestTimeout: 300000,
+        max: 300,
+        idleTimeoutMillis: 300000
+    }
 }
 module.exports = {
     connect: function () {

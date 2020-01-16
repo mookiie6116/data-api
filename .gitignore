@@ -85,3 +85,6 @@ typings/
 .dynamodb/
 
 # End of https://www.gitignore.io/api/node
+Exports/AppFile/
+Exports/YesFile/
+Exports/Voice/

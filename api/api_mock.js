@@ -3,8 +3,8 @@ var router = express.Router();
 var db = require("../models/connectMssql");
 var data = require('./data/data.json')
 var mongo = require('./../models/connectMongo')
-var interactions = require('./../models/mock_interactions')
-var handelTabs = require('./../models/mock_handelTabs')
+// var interactions = require('./../models/mock_interactions')
+// var handelTabs = require('./../models/mock_handelTabs')
 const uuidv1 = require('uuid/v1');
 
 router.get("/customer", function (req, res) {

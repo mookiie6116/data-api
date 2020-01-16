@@ -12,13 +12,10 @@ app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', require('./api.js'));
 
-app.use('/user',require('./api/api_news'));
-app.use('/schedule',require('./api/api_schedule'));
-app.use('/note',require('./api/api_note'));
-app.use('/activity-log',require('./api/api_activityLog'));
-app.use('/mock',require('./api/api_mock'));
+app.use('/api/v1', require('./api.js'));
+
+// app.use('/mock',require('./api/api_mock'));
 
 app.use('/connect',function (req,res) {
   db.connect()
