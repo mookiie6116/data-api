@@ -185,73 +185,137 @@ router.get('/generate/YesFile', function name(req, res, next) {
   let pathFolder = md5(Date.now())
   let startTime = new Date()
   let aloha = 0
+  let task_id
   let sql = `exec sp_genYesFile`
   db.query(sql, function (response) {
-    ef.printLog('Start-Exec', response)
-    response.map(function (item) {
-      var arr = []
-      ef.printLog('Start-Loop', item)
-      var pathFile = `${path.resolve("Exports")}`
-      if ('Yes File' == item.file_type) {
-        pathFile = path.join(pathFile, 'YesFile', pathFolder)
-        if (!fs.existsSync(pathFile)) {
-          fs.mkdirSync(pathFile, 777);
-        }
-        ef.printLog('Start-YesFile', item.str_query)
-        arr.push(ef.excel(item.str_query, item.name, pathFile))
-        Promise.all(arr).then(function (responsePromise) {
-          ef.printLog('Start-Upload', `${pathFile}\\${item.name}`)
-          ef.uploadFile(api_upload, 'file', `${pathFile}\\${item.name}`)
-            .then(resUpload => {
-              if (resUpload.status) {
-                ef.printLog('Success-Upload', resUpload.data)
-                let data = resUpload.data
-                let sql = `update export_file_list
+    if (Array.isArray(response)) {
+      ef.printLog('Start-Exec', response)
+      response.map(function (item) {
+        task_id = response[0].export_file_task_id
+        var arr = []
+        ef.printLog('Start-Loop', item)
+        var pathFile = `${path.resolve("Exports")}`
+        if ('Yes File' == item.file_type) {
+          pathFile = path.join(pathFile, 'YesFile', pathFolder)
+          if (!fs.existsSync(pathFile)) {
+            fs.mkdirSync(pathFile, 777);
+          }
+          ef.printLog('Start-YesFile', item.str_query)
+          arr.push(ef.excel(item.str_query, item.name, pathFile))
+          Promise.all(arr).then(function (responsePromise) {
+            ef.printLog('Start-Upload', path.join(pathFile, item.name))
+            ef.uploadFile(api_upload, 'file', path.join(pathFile, item.name))
+              .then(resUpload => {
+                if (resUpload.status) {
+                  ef.printLog('Success-Upload', resUpload.data)
+                  let data = resUpload.data
+                  let sql = `update export_file_list
                               set size = '${data.size}',
                                   file_id = '${data.id}',
                                   content_type = '${data.type}'
                               where id = '${item.id}'`
-                ef.printLog('Start-Update', sql)
-                db.query(sql, function (err, responseUpdate) {
-                  if (err) {
-                    ef.printLog('fail-Update', sql)
-                  }
-                  else {
-                    ef.removeFile(`${pathFile}`)
-                    ef.printLog('Success-Update', sql)
-                    aloha += 1
-                  }
-                })
-              }
-              else {
-                ef.printLog('fail-Upload', resUpload.data)
-              }
-            })
-        })
-      }
-      else if ('App File' == item.file_type) {
-        pathFile = path.join(pathFile, 'AppFile', pathFolder)
-        if (!fs.existsSync(pathFile)) {
-          fs.mkdirSync(pathFile, 777);
-        }
-        ef.printLog('Start-AppFile', item.str_query)
-        db.query(item.str_query, function (resApp) {
-          ef.printLog('Start-mailMerge',resApp.length)
-          axios({
-            method: 'post',
-            url: api_mailMerge,
-            data: resApp,
-            responseType: 'stream'
+                  ef.printLog('Start-Update', sql)
+                  db.query(sql, function (err, responseUpdate) {
+                    if (err) {
+                      ef.printLog('fail-Update', sql)
+                    }
+                    else {
+                      ef.removeFile(`${pathFile}`)
+                      ef.printLog('Success-Update', sql)
+                      aloha += 1
+                    }
+                  })
+                }
+                else {
+                  ef.printLog('fail-Upload', resUpload.data)
+                }
+              })
           })
-            .then(function (resAppDoc) {
-              ef.printLog('Success-mailMerge', resAppDoc.length)
-              resAppDoc.data.pipe(fs.createWriteStream(`${pathFile}\\${item.name}`)).on('finish', function () {
-                ef.printLog('Start-decompress', '')
-                decompress(`${pathFile}\\${item.name}`, `${pathFile}`).then(files => {
-                  ef.printLog('Success-decompress', files.length)
-                  ef.word2pdf(resApp, files, pathFile).then(output => {
-                    ef.printLog('Success-word2pdf', '')
-                    arr.push(ef.zip(`${item.name}`, `${pathFile}\\`, output))
+        } else if ('App File' == item.file_type) {
+          pathFile = path.join(pathFile, 'AppFile', pathFolder)
+          if (!fs.existsSync(pathFile)) {
+            fs.mkdirSync(pathFile, 777);
+          }
+          ef.printLog('Start-AppFile', item.str_query)
+          db.query(item.str_query, function (resApp) {
+            ef.printLog('Start-mailMerge', resApp.length)
+            axios({
+              method: 'post',
+              url: api_mailMerge,
+              data: resApp,
+              responseType: 'stream'
+            })
+              .then(function (resAppDoc) {
+                ef.printLog('Success-mailMerge', resAppDoc.length)
+                resAppDoc.data.pipe(fs.createWriteStream(path.join(pathFile, item.name))).on('finish', function () {
+                  ef.printLog('Start-decompress', '')
+                  decompress(path.join(pathFile, item.name), `${pathFile}`).then(files => {
+                    ef.printLog('Success-decompress', files.length)
+                    ef.word2pdf(resApp, files, pathFile).then(output => {
+                      ef.printLog('Success-word2pdf', '')
+                      arr.push(ef.zip(`${item.name}`, `${pathFile}\\`, output))
+                      Promise.all(arr).then(function (responsePromise) {
+                        ef.printLog('Start-Upload', path.join(pathFile, item.name))
+                        ef.uploadFile(api_upload, 'file', path.join(pathFile, item.name))
+                          .then(resUpload => {
+                            if (resUpload.status) {
+                              ef.printLog('Success-Upload', resUpload.data)
+                              let data = resUpload.data
+                              let sql = `update export_file_list
+                                              set size = '${data.size}',
+                                                  file_id = '${data.id}',
+                                                  content_type = '${data.type}'
+                                              where id = '${item.id}'`
+                              ef.printLog('Start-Update', sql)
+                              db.query(sql, function (err, responseUpdate) {
+                                if (err) {
+                                  ef.printLog('fail-Update', sql)
+                                }
+                                else {
+                                  ef.removeFile(`${pathFile}`)
+                                  ef.printLog('Success-Update', sql)
+                                  aloha += 1
+                                }
+                              })
+                            }
+                            else {
+                              ef.printLog('fail-Upload', resUpload.data)
+                            }
+                          })
+                      })
+                    })
+                  });
+                })
+              }).catch(function (err) {
+                res.status(200).json(err)
+              });
+          })
+        } else if ('Voice File' == item.file_type) {
+          pathFile = path.join(pathFile, 'VoiceFile', pathFolder)
+          if (!fs.existsSync(pathFile)) {
+            fs.mkdirSync(pathFile, 777);
+          }
+          ef.printLog('Start-VoiceFile', item.str_query)
+          let folderName = `${moment().format('YYYYMMDD')}-${item.name.split(".")[0]}`
+          let data = []
+          db.query(item.str_query, function (responseVoice) {
+            responseVoice.map(function (itemVoice) {
+              let fileName = `${itemVoice.Proposal_No}_LOPOS_Voice_File_${itemVoice.track_id}`
+              let obj = {
+                folderName,
+                trackId: itemVoice.track_id,
+                fileName
+              }
+              data.push(obj)
+            })
+            axios
+              .create({ headers: { 'Content-Type': 'application/json' } })
+              .post(api_voice, data)
+              .then(function (responseVoiceFile) {
+                ef.downloadVoice(responseVoiceFile.data.voiceResult, pathFile)
+                  .then(function (path) {
+                    ef.printLog('Success-VoiceFile', `${path}`)
+                    arr.push(ef.zip(`${item.name}`, `${pathFile}`, `${path}`))
                     Promise.all(arr).then(function (responsePromise) {
                       ef.printLog('Start-Upload', `${pathFile}\\${item.name}`)
                       ef.uploadFile(api_upload, 'file', `${pathFile}\\${item.name}`)
@@ -260,10 +324,10 @@ router.get('/generate/YesFile', function name(req, res, next) {
                             ef.printLog('Success-Upload', resUpload.data)
                             let data = resUpload.data
                             let sql = `update export_file_list
-                                              set size = '${data.size}',
-                                                  file_id = '${data.id}',
-                                                  content_type = '${data.type}'
-                                              where id = '${item.id}'`
+                              set size = '${data.size}',
+                                  file_id = '${data.id}',
+                                  content_type = '${data.type}'
+                              where id = '${item.id}'`
                             ef.printLog('Start-Update', sql)
                             db.query(sql, function (err, responseUpdate) {
                               if (err) {
@@ -280,93 +344,83 @@ router.get('/generate/YesFile', function name(req, res, next) {
                             ef.printLog('fail-Upload', resUpload.data)
                           }
                         })
+                        .catch(function (upload) {
+                          res.status(200).json({ upload })
+                        })
                     })
+                      .catch(function (all) {
+                        res.status(200).json({ all })
+                      })
                   })
-                });
+                  .catch(function (params) {
+                    res.status(200).json({ params })
+                  })
+              }).catch(function (err) {
+                res.status(200).json({ err })
               })
-            }).catch(function (err) {
-              res.status(200).json(err)
-            });
-        })
-      } else if ('Voice File' == item.file_type) {
-        pathFile = path.join(pathFile, 'VoiceFile', pathFolder)
-        if (!fs.existsSync(pathFile)) {
-          fs.mkdirSync(pathFile, 777);
-        }
-        ef.printLog('Start-VoiceFile', item.str_query)
-        let folderName = `${moment().format('YYYYMMDD')}-${item.name.split(".")[0]}`
-        let data = []
-        db.query(item.str_query, function (responseVoice) {
-          responseVoice.map(function (itemVoice) {
-            let fileName = `${itemVoice.Proposal_No}_LOPOS_Voice_File_${itemVoice.track_id}`
-            let obj = {
-              folderName,
-              trackId: itemVoice.track_id,
-              fileName
-            }
-            data.push(obj)
           })
-          axios
-            .create({ headers: { 'Content-Type': 'application/json' } })
-            .post(api_voice, data)
-            .then(function (responseVoiceFile) {
-              ef.downloadVoice(responseVoiceFile.data.voiceResult, pathFile)
-                .then(function (path) {
-                  ef.printLog('Success-VoiceFile', `${path}`)
-                  arr.push(ef.zip(`${item.name}`, `${pathFile}`, `${path}`))
-                  Promise.all(arr).then(function (responsePromise) {
-                    ef.printLog('Start-Upload', `${pathFile}\\${item.name}`)
-                    ef.uploadFile(api_upload, 'file', `${pathFile}\\${item.name}`)
-                      .then(resUpload => {
-                        if (resUpload.status) {
-                          ef.printLog('Success-Upload', resUpload.data)
-                          let data = resUpload.data
-                          let sql = `update export_file_list
+        } else if ('NCB File' == item.file_type) {
+          pathFile = path.join(pathFile, 'NCBFile', pathFolder)
+          if (!fs.existsSync(pathFile)) {
+            fs.mkdirSync(pathFile, 777);
+          }
+          ef.printLog('Start-NCBFile', item.str_query)
+          arr.push(ef.txt(item.str_query, item.name, pathFile,item.output_column_delimeters))
+          Promise.all(arr).then(function (responsePromise) {
+            ef.printLog('Start-Upload', path.join(pathFile, item.name))
+            ef.uploadFile(api_upload, 'file', path.join(pathFile, item.name))
+              .then(resUpload => {
+                if (resUpload.status) {
+                  ef.printLog('Success-Upload', resUpload.data)
+                  let data = resUpload.data
+                  let sql = `update export_file_list
                               set size = '${data.size}',
                                   file_id = '${data.id}',
                                   content_type = '${data.type}'
                               where id = '${item.id}'`
-                          ef.printLog('Start-Update', sql)
-                          db.query(sql, function (err, responseUpdate) {
-                            if (err) {
-                              ef.printLog('fail-Update', sql)
-                            }
-                            else {
-                              ef.removeFile(`${pathFile}`)
-                              ef.printLog('Success-Update', sql)
-                              aloha += 1
-                            }
-                          })
-                        }
-                        else {
-                          ef.printLog('fail-Upload', resUpload.data)
-                        }
-                      })
-                      .catch(function (upload) {
-                        res.status(200).json({ upload })
-                      })
+                  ef.printLog('Start-Update', sql)
+                  db.query(sql, function (err, responseUpdate) {
+                    if (err) {
+                      ef.printLog('fail-Update', sql)
+                    }
+                    else {
+                      // ef.removeFile(`${pathFile}`)
+                      ef.printLog('Success-Update', sql)
+                      aloha += 1
+                    }
                   })
-                    .catch(function (all) {
-                      res.status(200).json({ all })
-                    })
-                })
-                .catch(function (params) {
-                  res.status(200).json({ params })
-                })
-            }).catch(function (err) {
-              res.status(200).json({ err })
-            })
-        })
-      }
-    })
-    let Interval = setInterval(function () {
-      if (response.length === aloha) {
-        console.log("Complete!")
-        clearInterval(Interval)
-        res.status(200).json({ msg: 'OK', startTime, endTime: new Date(), sql, timeCount: ef.diffDate(startTime) + ' ms' })
-        return
-      }
-    }, 100);
+                }
+                else {
+                  ef.printLog('fail-Upload', resUpload.data)
+                }
+              }).catch(errUpload=>{
+                console.log('errUpload',errUpload);
+              })
+          })
+        }
+      })
+      let Interval = setInterval(function () {
+        if (response.length === aloha) {
+          console.log("Complete!")
+          clearInterval(Interval)
+          let sql_last = `update export_file_task set status = 'completed', end_process_date = getdate() where id = ${task_id}`
+          db.query(sql_last,function (err, responseLast) {
+            if (err) {
+              ef.printLog('fail-LastUpdate', sql)
+            }else{
+              console.log({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+              res.status(200).json({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+              return
+            }
+          })
+        }
+      }, 100);
+    } else {
+      console.log({ msg: 'Not Found Data', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+      res.status(200).json({ msg: 'Not Found Data', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+      return
+    }
   })
 })
+
 module.exports = router;

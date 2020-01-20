@@ -56,6 +56,30 @@ module.exports = {
       }
     })
   },
+  txt: function (sql, filename, pathFile,delimiter) {
+    var wb = XLSX.utils.book_new();
+    wb.Props = {
+      Title: filename,
+      Author: "Ruammit",
+      CreatedDate: new Date()
+    };
+    wb.SheetNames.push(filename);
+    return new Promise(function (resolve, reject) {
+      db.query(sql, function (response) {
+        if (response.length) {
+          var ws = XLSX.utils.json_to_sheet(response);
+          wb.Sheets[filename] = ws;
+          var newpath = path.join(pathFile,filename);
+          var stream = XLSX.stream.to_csv(ws,{FS:delimiter});
+          stream.pipe(fs.createWriteStream(`${newpath}`));
+          resolve ({ status: true, msg: response, count: response.length })
+        }
+        else {
+          reject ({ status: true, msg: response, count: response.length })
+        }
+      })
+    })
+  },
   zip: function (filename, pathFile, directory) {
     var newpath = path.join(pathFile,filename);
     var output = fs.createWriteStream(`${newpath}`);
@@ -183,18 +207,6 @@ module.exports = {
             })
         })
       }
-      // const downLoadFile = function () {
-      //   voiceResult.map(function (item) {
-      //     axios.get(item.downloadUrl,{responseType: 'stream'})
-      //       .then(function (response) {
-      //         return wirteFile(item.fileName, response)
-      //       })
-      //       .then(function () {
-      //         // if(arr.length == )
-      //         readDir()
-      //       })
-      //   })
-      // }
       const downLoadFile = function () {
         voiceResult.map(function (item) {
           arr.push(new Promise(function (resolveMain, rejectMain) {
@@ -222,42 +234,9 @@ module.exports = {
     console.log({ msg, item, time: moment().format() });
   },
   removeFile: function (directory,folder) {
-    // removeDirForce(directory)
-    // function removeDirForce (path) {
-    //     fs.readdir(path, function (err, files) {
-    //         if (err) {
-    //             console.log(err.toString());
-    //         }
-    //         else {
-    //             if (files.length == 0) {
-    //                 fs.rmdir(path, function (err) {
-    //                     if (err) {
-    //                         console.log(err.toString());
-    //                     }
-    //                 });
-    //             }
-    //             else {
-    //                 files.map(function (file) {
-    //                     var filePath = path + "/" + file + "/";
-    //                     fs.stat(filePath, function (err, stats) {
-    //                         if (stats.isFile()) {
-    //                             fs.unlink(filePath, function (err) {
-    //                                 if (err) {
-    //                                     console.log(err.toString());
-    //                                 }
-    //                             });
-    //                         }
-    //                         if (stats.isDirectory()) {
-    //                             removeDirForce(filePath);
-    //                         }
-    //                     });
-    //                 });
-    //             }
-    //         }
-    //     });
-    // }
     // let pathFind = path.join(directory, folder)
     // let listDir = fs.readdirSync(directory)
+    console.log("delete",directory);
     rimraf.sync(directory)
     // listDir.forEach(dir => {
       // rimraf.sync(path.join(findDir, dir))
@@ -266,7 +245,7 @@ module.exports = {
   diffDate:function (params) {
     let date = new Date()
     var diff =(date.getTime() - params.getTime()) / 1000;
-    diff /= 60;
+    return diff
     return Math.abs(Math.round(diff));
   }
 }
