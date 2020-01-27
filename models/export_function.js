@@ -21,16 +21,11 @@ module.exports = {
     wb.SheetNames.push(filename);
     return new Promise(function (resolve, reject) {
       db.query(sql, function (response) {
-        if (response.length) {
           var ws = XLSX.utils.json_to_sheet(response);
           wb.Sheets[filename] = ws;
           var newpath = path.join(pathFile,filename);
           XLSX.writeFile(wb, newpath, { type: "application/xls" });
           resolve({ status: true, msg: response, count: response.length })
-        }
-        else {
-          reject({ status: true, msg: response, count: response.length })
-        }
       })
     })
   },
@@ -43,17 +38,12 @@ module.exports = {
     };
     wb.SheetNames.push(filename);
     db.query(sql, function (response) {
-      if (response.length) {
         var ws = XLSX.utils.json_to_sheet(response);
         wb.Sheets[filename] = ws;
         var newpath = pathFile + filename;
         var stream = XLSX.stream.to_csv(ws);
         stream.pipe(fs.createWriteStream(`${newpath}`));
         return { status: true, msg: response, count: response.length }
-      }
-      else {
-        return { status: true, msg: response, count: response.length }
-      }
     })
   },
   txt: function (sql, filename, pathFile,delimiter) {
@@ -66,17 +56,12 @@ module.exports = {
     wb.SheetNames.push(filename);
     return new Promise(function (resolve, reject) {
       db.query(sql, function (response) {
-        if (response.length) {
           var ws = XLSX.utils.json_to_sheet(response);
           wb.Sheets[filename] = ws;
           var newpath = path.join(pathFile,filename);
           var stream = XLSX.stream.to_csv(ws,{FS:delimiter});
           stream.pipe(fs.createWriteStream(`${newpath}`));
           resolve ({ status: true, msg: response, count: response.length })
-        }
-        else {
-          reject ({ status: true, msg: response, count: response.length })
-        }
       })
     })
   },

@@ -300,7 +300,8 @@ router.get('/generate/YesFile', function name(req, res, next) {
           let data = []
           db.query(item.str_query, function (responseVoice) {
             responseVoice.map(function (itemVoice) {
-              let fileName = `${itemVoice.Proposal_No}_LOPOS_Voice_File_${itemVoice.track_id}`
+              // let fileName = `${itemVoice.Proposal_No}_LOPOS_Voice_File_${itemVoice.track_id}`
+              let fileName = `${itemVoice.file_name}`
               let obj = {
                 folderName,
                 trackId: itemVoice.track_id,
@@ -403,16 +404,22 @@ router.get('/generate/YesFile', function name(req, res, next) {
         if (response.length === aloha) {
           console.log("Complete!")
           clearInterval(Interval)
-          let sql_last = `update export_file_task set status = 'completed', end_process_date = getdate() where id = ${task_id}`
-          db.query(sql_last,function (err, responseLast) {
-            if (err) {
-              ef.printLog('fail-LastUpdate', sql)
-            }else{
-              console.log({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
-              res.status(200).json({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
-              return
-            }
-          })
+          if (aloha > 0) {
+            let sql_last = `update export_file_task set status = 'completed', end_process_date = getdate() where id = ${task_id}`
+            db.query(sql_last,function (err, responseLast) {
+              if (err) {
+                ef.printLog('fail-LastUpdate', sql)
+              }else{
+                console.log({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+                res.status(200).json({ msg: 'OK', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+                return
+              }
+           })
+          }else{
+            console.log({ msg: 'Data not found', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+            res.status(200).json({ msg: 'Data not found', startTime: moment(startTime).format(), endTime: moment().format(), timeCount: ef.diffDate(startTime) + ' sec' })
+            return
+          }
         }
       }, 100);
     } else {

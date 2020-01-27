@@ -1,30 +1,8 @@
 var express = require("express");
 var router = express.Router();
-var mssql = require('mssql')
 var db = require("../models/connectMssql");
 
-router.get("/today", async function (req, res) {
-  let offset = parseInt(req.query.offset)
-  let currentpage = parseInt(req.query.offset) + 1
-  let userId = req.query.userId.trim()
-  let sql = `exec sp_GetAgentSchedule N'${userId}'`
-  let limit = 3
-  let result = await mssql.query(sql)
-  console.log('offset',limit * offset, limit * (offset + 1))
-  return res.json({
-    pagination: {
-      limit: limit,
-      previouspage: offset,
-      nextpage: currentpage + 1,
-      currentpage: currentpage,
-      pagecount: Math.ceil(result.recordset.length / 3),
-      totalcount: result.recordset.length,
-    },
-    items: result.recordset.slice(limit * offset, limit * (offset + 1)),
-  })
-})
-
-router.get("/today2", function (req, res) {
+router.get("/today", function (req, res) {
   let currentpage = parseInt(req.query.offset) + 1;
   let userId = req.query.userId.trim();
   let data = { "pagination": {}, "items": {} }
